@@ -1,6 +1,13 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,7 +28,16 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Loader2, Plus, Trash2 } from "lucide-react";
+import {
+  Download,
+  Loader2,
+  Lock,
+  Pencil,
+  Plus,
+  Trash2,
+  Unlock,
+  UserPlus,
+} from "lucide-react";
 import { useState } from "react";
 import {
   Bar,
@@ -50,6 +66,375 @@ import {
   useMeetings,
 } from "../hooks/useQueries";
 import { formatAmount, formatDate } from "../utils/formatters";
+
+const LS_KEY = "bmc_users";
+
+interface ManagedUser {
+  id: string;
+  name: string;
+  principal: string;
+  role: "admin" | "user" | "guest";
+  blocked: boolean;
+}
+
+function loadUsers(): ManagedUser[] {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUsers(users: ManagedUser[]) {
+  localStorage.setItem(LS_KEY, JSON.stringify(users));
+}
+
+const EMPTY_FORM = {
+  name: "",
+  principal: "",
+  role: "user" as ManagedUser["role"],
+};
+
+function UsersTab() {
+  const [users, setUsers] = useState<ManagedUser[]>(loadUsers);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editUser, setEditUser] = useState<ManagedUser | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+
+  const persist = (updated: ManagedUser[]) => {
+    setUsers(updated);
+    saveUsers(updated);
+  };
+
+  const openAdd = () => {
+    setForm(EMPTY_FORM);
+    setAddOpen(true);
+  };
+
+  const openEdit = (u: ManagedUser) => {
+    setForm({ name: u.name, principal: u.principal, role: u.role });
+    setEditUser(u);
+  };
+
+  const handleAdd = () => {
+    if (!form.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    const newUser: ManagedUser = {
+      id: Date.now().toString(),
+      name: form.name.trim(),
+      principal: form.principal.trim(),
+      role: form.role,
+      blocked: false,
+    };
+    persist([...users, newUser]);
+    toast.success("User added");
+    setAddOpen(false);
+  };
+
+  const handleEdit = () => {
+    if (!editUser) return;
+    if (!form.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    persist(
+      users.map((u) =>
+        u.id === editUser.id
+          ? {
+              ...u,
+              name: form.name.trim(),
+              principal: form.principal.trim(),
+              role: form.role,
+            }
+          : u,
+      ),
+    );
+    toast.success("User updated");
+    setEditUser(null);
+  };
+
+  const toggleBlock = (id: string) => {
+    const updated = users.map((u) =>
+      u.id === id ? { ...u, blocked: !u.blocked } : u,
+    );
+    persist(updated);
+    const user = updated.find((u) => u.id === id);
+    toast.success(user?.blocked ? "User blocked" : "User unblocked");
+  };
+
+  const deleteUser = (id: string) => {
+    persist(users.filter((u) => u.id !== id));
+    toast.success("User deleted");
+  };
+
+  const roleBadgeVariant = (role: string) => {
+    if (role === "admin") return "default";
+    if (role === "guest") return "secondary";
+    return "outline";
+  };
+
+  return (
+    <Card className="rounded-2xl shadow-card">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle style={{ color: "#0F5B3A" }}>Manage Users</CardTitle>
+        <Button
+          type="button"
+          onClick={openAdd}
+          className="rounded-xl bg-primary text-white"
+          data-ocid="users.open_modal_button"
+        >
+          <UserPlus className="w-4 h-4 mr-2" /> Add User
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {users.length === 0 ? (
+          <div
+            className="text-center py-12 text-muted-foreground"
+            data-ocid="users.empty_state"
+          >
+            No users yet. Click "Add User" to get started.
+          </div>
+        ) : (
+          <Table data-ocid="users.table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Principal</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((u, i) => (
+                <TableRow key={u.id} data-ocid={`users.item.${i + 1}`}>
+                  <TableCell className="font-medium">{u.name}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs font-mono max-w-[160px] truncate">
+                    {u.principal || "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={roleBadgeVariant(u.role)}
+                      className="capitalize"
+                    >
+                      {u.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {u.blocked ? (
+                      <Badge variant="destructive">Blocked</Badge>
+                    ) : (
+                      <Badge className="bg-green-600 text-white hover:bg-green-700">
+                        Active
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openEdit(u)}
+                        data-ocid={`users.edit_button.${i + 1}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => toggleBlock(u.id)}
+                        className={
+                          u.blocked
+                            ? "text-green-600 hover:text-green-700"
+                            : "text-amber-600 hover:text-amber-700"
+                        }
+                        data-ocid={`users.toggle.${i + 1}`}
+                      >
+                        {u.blocked ? (
+                          <Unlock className="w-4 h-4" />
+                        ) : (
+                          <Lock className="w-4 h-4" />
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteUser(u.id)}
+                        className="text-destructive hover:text-destructive"
+                        data-ocid={`users.delete_button.${i + 1}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+
+      {/* Add User Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent data-ocid="users.dialog">
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Name *</Label>
+              <Input
+                placeholder="Full name"
+                value={form.name}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
+                className="rounded-xl mt-1"
+                data-ocid="users.input"
+              />
+            </div>
+            <div>
+              <Label>Principal (optional)</Label>
+              <Input
+                placeholder="Internet Identity principal"
+                value={form.principal}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, principal: e.target.value }))
+                }
+                className="rounded-xl mt-1 font-mono text-sm"
+                data-ocid="users.input"
+              />
+            </div>
+            <div>
+              <Label>Role</Label>
+              <Select
+                value={form.role}
+                onValueChange={(v) =>
+                  setForm((p) => ({ ...p, role: v as ManagedUser["role"] }))
+                }
+              >
+                <SelectTrigger
+                  className="rounded-xl mt-1"
+                  data-ocid="users.select"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="guest">Guest</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAddOpen(false)}
+              data-ocid="users.cancel_button"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAdd}
+              className="bg-primary text-white"
+              data-ocid="users.confirm_button"
+            >
+              Add User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog
+        open={!!editUser}
+        onOpenChange={(o) => {
+          if (!o) setEditUser(null);
+        }}
+      >
+        <DialogContent data-ocid="users.dialog">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Name *</Label>
+              <Input
+                placeholder="Full name"
+                value={form.name}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
+                className="rounded-xl mt-1"
+                data-ocid="users.input"
+              />
+            </div>
+            <div>
+              <Label>Principal (optional)</Label>
+              <Input
+                placeholder="Internet Identity principal"
+                value={form.principal}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, principal: e.target.value }))
+                }
+                className="rounded-xl mt-1 font-mono text-sm"
+                data-ocid="users.input"
+              />
+            </div>
+            <div>
+              <Label>Role</Label>
+              <Select
+                value={form.role}
+                onValueChange={(v) =>
+                  setForm((p) => ({ ...p, role: v as ManagedUser["role"] }))
+                }
+              >
+                <SelectTrigger
+                  className="rounded-xl mt-1"
+                  data-ocid="users.select"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="guest">Guest</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditUser(null)}
+              data-ocid="users.cancel_button"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleEdit}
+              className="bg-primary text-white"
+              data-ocid="users.save_button"
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
 
 export function AdminDashboard() {
   const { data: irayidiTotal = 0 } = useContributionTotal(
@@ -214,11 +599,15 @@ export function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="overview">
-          <TabsList className="rounded-xl mb-6" data-ocid="admin.tab">
+          <TabsList
+            className="rounded-xl mb-6 flex-wrap h-auto"
+            data-ocid="admin.tab"
+          >
             <TabsTrigger value="overview">Financial Overview</TabsTrigger>
             <TabsTrigger value="contributions">Contributions</TabsTrigger>
             <TabsTrigger value="meetings">Meetings</TabsTrigger>
             <TabsTrigger value="announcements">Announcements</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -535,6 +924,10 @@ export function AdminDashboard() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="users">
+            <UsersTab />
           </TabsContent>
         </Tabs>
       </div>
