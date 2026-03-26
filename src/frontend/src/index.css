@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+    /* Primary green: #0F5B3A */
+    --primary: 0.38 0.12 152;
+    --primary-foreground: 1 0 0;
+    /* Gold accent: #B8944E */
+    --accent: 0.67 0.09 75;
+    --accent-foreground: 1 0 0;
+    /* Background: #F3F4F6 */
+    --background: 0.97 0 0;
+    --foreground: 0.18 0 0;
+    /* Card: white */
+    --card: 1 0 0;
+    --card-foreground: 0.18 0 0;
+    --popover: 1 0 0;
+    --popover-foreground: 0.18 0 0;
+    --secondary: 0.95 0 0;
+    --secondary-foreground: 0.18 0 0;
+    --muted: 0.95 0 0;
+    --muted-foreground: 0.55 0 0;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 1 0 0;
+    --border: 0.93 0 0;
+    --input: 0.93 0 0;
+    --ring: 0.38 0.12 152;
+    --chart-1: 0.38 0.12 152;
+    --chart-2: 0.67 0.09 75;
+    --chart-3: 0.5 0.1 152;
+    --chart-4: 0.75 0.07 75;
+    --chart-5: 0.6 0.08 152;
+    --sidebar: 1 0 0;
+    --sidebar-foreground: 0.18 0 0;
+    --sidebar-primary: 0.38 0.12 152;
+    --sidebar-primary-foreground: 1 0 0;
+    --sidebar-accent: 0.95 0 0;
+    --sidebar-accent-foreground: 0.18 0 0;
+    --sidebar-border: 0.93 0 0;
+    --sidebar-ring: 0.38 0.12 152;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+  }
+}
